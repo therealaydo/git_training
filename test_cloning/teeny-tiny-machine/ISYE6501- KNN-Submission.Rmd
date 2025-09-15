@@ -1,0 +1,173 @@
+---
+course: "ISyE 6501"
+session: "Fall 2024"
+title: "HW 1 - Classification - K-Nearest Neighbor Model"
+author: "Yukti Bishambu; Liza Ghosh; Sakhi Sathya Pasupathy; Nayel Noorani"
+date: "2024-08-26"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Locate dataset
+
+Each user should edit this portion, to locate the dataset on their machine before running the code.
+
+```{r locate-data}
+# Locate the data
+data.source <- "/Users/pc/Dropbox/Georgia Tech/ISYE 6501/HW1/credit_card_data-headers.txt"
+```
+
+## About the dataset
+
+The files credit_card_data.txt (without headers) and credit_card_data-headers.txt (with headers) contain a dataset with 654 data points, 6 continuous and 4 binary predictor variables.  It has anonymized credit card applications with a binary response variable (R1) indicating if the application was positive or negative. 
+
+The dataset is the “Credit Approval Data Set” from the UCI Machine Learning Repository (https://archive.ics.uci.edu/ml/datasets/Credit+Approval) without the categorical variables and without data points that have missing values.
+
+```{r load-data}
+# Load the data
+df <- read.table(data.source, header = TRUE, sep = "\t")
+```
+
+## Load the kknn library
+
+The `kknn` library provides a function for model fitting and prediction with several key parameters: `formula` to specify the response variable and predictors, `train` and `test` datasets to train and evaluate the model respectively, and `k` to define the number of neighbors to consider.
+
+Additionally, it includes the `distance` parameter to choose the distance metric (e.g., Euclidean or Minkowski), and the `scale` parameter to determine if the features should be scaled. Other parameters include `kernel` for the kernel function in weighted KNN, and `model` to specify the type of model.
+
+```{r load-kknn}
+# Load kknn library
+library(kknn)
+```
+
+## Model setup
+
+We will be using a range of values for k, from 1 through 20, and writing the results to a dataframe.
+
+```{r model-setup}
+# List of k values to try
+k_values <- 1:20
+
+# Initialize the results dataframe
+results_df <- data.frame(
+  k = integer(),
+  accuracy = numeric(),
+  method = character(),
+  stringsAsFactors = FALSE
+)
+
+```
+
+## Loop over k values to find best value
+
+In this first analysis, we are using Leave-One-Out-Cross-Validation (LOOCV). It evaluates the performance of a model by iteratively training it on all but one data point and then testing it on the excluded point. This process is repeated so that each data point is used once as the test set while the remaining points form the training set. The final model performance is typically averaged across all iterations to provide an overall accuracy estimate. LOOCV is particularly useful for small datasets where maximizing the training data is crucial.
+
+```{r looping-over-k}
+# Loop over k values
+for (k in k_values) {
+  # Initialize a vector to store accuracy for each iteration of LOOCV
+  accuracies <- numeric(nrow(df))
+
+  # Perform LOOCV
+  for (i in 1:nrow(df)) {
+    # Split the data into training and one test point
+    train_data <- df[-i, ]
+    test_data <- df[i, , drop = FALSE]
+
+    # Train the KNN model with the current k value
+    model <- kknn(formula = as.factor(R1) ~ ., train = train_data, test = test_data, k = k, distance = 2, scale = TRUE)
+
+    # Make a prediction for the test point
+    pred <- fitted(model)
+
+    # Calculate the accuracy for this test point
+    accuracies[i] <- ifelse(pred == test_data$R1, 1, 0)
+  }
+  # Calculate the mean accuracy for this k value
+  accuracy <- mean(accuracies)
+
+  # Append the new values to the results_df
+  results_df <- rbind(results_df, data.frame(
+    k = k,
+    accuracy = accuracy,
+    method = "LOOCV",
+    stringsAsFactors = FALSE
+  ))
+}
+
+# Print the results
+print(results_df)
+```
+
+## Identify the best models
+
+In this portion, we are identifying the values of k with the highest accuracy, using the LOOCV method.
+
+```{r identify-best-models}
+# Find the top 3 results with the highest accuracy
+top_results <- results_df[order(-results_df$accuracy), ][1:3, ]
+
+# Print the k and accuracy for the top 3 results
+print(top_results)
+```
+
+## Splitting the data into train & test
+
+This method involves dividing the dataset into two separate subsets: a training set and a test set. In this case, we are using a single split of 70-30. This allows for an unbiased assessment of how well the model generalizes to new, unseen data. Other variations could be used as well. The seed has been set at 123 for reproducibility of the results.
+
+```{r split-data}
+# Set seed for reproducibility
+set.seed(123)
+
+# Set size of training data as a fraction of whole dataset
+training_data_size = 0.7
+
+# Randomly sample training data
+train_indices <- sample(1:nrow(df), size = training_data_size * nrow(df))
+train_data <- df[train_indices, ]
+test_data <- df[-train_indices, ]
+```
+
+## Loop over the same k values
+
+To allow for comparison between the two methods, the same k-values are being looped over.
+
+```{r train-test-loop}
+# Loop over k values
+for (k in k_values) {
+  
+  # Train the model with the current k value
+  model <- kknn(formula = as.factor(R1) ~., train = train_data, test = test_data, k = k, distance = 2)
+  
+  # Make predictions on the test data
+  pred <- fitted(model)
+  
+  # Calculate the accuracy on the test data
+  accuracy <- sum(pred == test_data$R1) / length(test_data$R1)
+  
+  # Append the new values to the results_df
+  results_df <- rbind(results_df, data.frame(
+    k = k,
+    accuracy = accuracy,
+    method = "train-test-split",
+    stringsAsFactors = FALSE
+  ))
+}
+
+# Print the results
+print(results_df)
+```
+
+## Print the final top results
+
+The performance of all k values (1 through 20) using both methods are now ranked by accuracy and the top 3 results displayed below.
+
+```{r top-results-after-two-methods}
+# Find the top 3 results with the highest accuracy
+top_results <- results_df[order(-results_df$accuracy), ][1:3, ]
+
+# Print the k and accuracy for the top 3 results
+print(top_results)
+```

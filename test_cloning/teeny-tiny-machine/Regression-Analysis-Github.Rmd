@@ -1,0 +1,183 @@
+---
+title: "NFL Quarterback Analysis - A simple regression analysis"
+author: "Nayel Noorani"
+date: "2024-09-07"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## Data Import and Exploration
+
+First, let's import the data and take a look at its structure.
+
+```{r import-data}
+qb_data <- read.csv("HW2F24Q1.csv")
+head(qb_data)
+str(qb_data)
+summary(qb_data)
+```
+
+## Analysis
+
+### Q1. Eyeballing the scatterplot
+
+Here's the scatter plot of quarterback rating (y) versus average yards gained per pass (x).
+
+```{r scatter-plot}
+ggplot(qb_data, aes(x = Yards, y = Rating)) +
+  geom_point(color = "#003057") +
+  geom_smooth(method = "lm", se = TRUE, color = "#003057", fill = "white", alpha = 0.3) +
+  labs(title = "Quarterback Rating vs. Average Yards Gained per Pass",
+       x = "Average Yards Gained per Pass",
+       y = "Quarterback Rating") +
+  theme_minimal() +
+  theme(
+    plot.background = element_rect(fill = "#B3A369"),
+    panel.background = element_rect(fill = "#B3A369"),
+    text = element_text(color = "white"),
+    axis.text = element_text(color = "white"),
+    axis.line = element_line(color = "white"),
+    panel.grid = element_line(color = "white"),
+    plot.title = element_text(color = "white"),
+    axis.title = element_text(color = "white")
+  )
+```
+
+## Interpretation:
+
+Based on the scatter plot, we can make the following observations:
+
+1. There appears to be a positive relationship between the average yards gained per pass and the quarterback rating. This is seen in the linear regression line.
+2. The white shaded area around the line represents the standard error ribbon, indicating the confidence interval for our regression line.
+3. The points seem to follow a roughly linear pattern, with some scatter around the trend line.
+4. There don't appear to be any obvious outliers or non-linear patterns in the data.
+5. The spread of the points around the trend line seems relatively consistent across the range of x values, suggesting homoscedasticity.
+
+Given these observations, a simple linear regression model does seem appropriate for this data. The relationship is approximately linear with no clear violations of the basic assumptions of linear regression - linearity, homoscedasticity, and absence of extreme outliers.
+
+The white standard error ribbon provides additional information about the uncertainty in our model. Where the ribbon is narrower, we have more confidence in our prediction, typically in the middle of the data range. The ribbon widens at the extremes, indicating less certainty in these areas.
+
+However, to fully confirm the appropriateness of a simple linear regression model, we would need to conduct further diagnostic tests after fitting the model.
+
+### 2. Fitting the Simple Linear Regression Model
+
+```{r fit-model}
+# Fit the linear model
+model <- lm(Rating ~ Yards, data = qb_data)
+
+# Display the summary of the model
+model_summary <- summary(model)
+print(model_summary)
+```
+
+### 3. Interpreting the slope parameter (B-1)
+
+The slope of the graph suggests an expected increase of ~10 points in rating if a quarterback is able to add a yard to his average gained per pass.
+
+### 4. Interpreting the intercept parameter (B-0)
+
+The intercept parameter is a theoretical value of 14 points that our model predicts for a scenario that doesn't occur in reality (zero yards per pass). While the intercept might not have a practical interpretation here, it's still crucial for our model to make accurate predictions within the range of the observed data.
+
+```{r error-terms}
+# Extract residual standard error (sigma_hat)
+sigma_hat <- model_summary$sigma
+
+# Calculate variance of residuals (sigma_hat_squared)
+sigma_hat_squared <- sigma_hat^2
+
+# Extract degrees of freedom for residuals
+df_residual <- model_summary$df[2]
+
+# Calculate SSE (Sum of Squared Errors)
+SSE <- sigma_hat_squared * df_residual
+
+# Print the results
+cat("Standard deviation of residuals:", sigma_hat, "\n")
+cat("Variance of residuals:", sigma_hat_squared, "\n")
+cat("Sum of Squared Errors (SSE):", SSE, "\n")
+```
+
+## To beat UGA's quarterback, how many more yards does our boy need?
+
+``` {r beating-uga}
+# Extract the coefficient for Yards (beta_1)
+beta_1 <- coef(model_summary)[2, "Estimate"]
+
+# Desired increase in Rating
+delta_rating <- 15
+
+# Calculate the increase in Yards needed
+delta_yards <- delta_rating / beta_1
+
+# Print the results
+cat("The coefficient for Yards (beta_1) is:", beta_1, "\n")
+cat("For the GTech quarterback to raise his rating by", delta_rating, "points and beat the UGA quarterback, he needs to add approximately", round(delta_yards, 2), "yards per pass.\n")
+```
+
+
+## Part II
+```{r part-ii-info}
+n <- 13
+sum_x <- 12207
+sum_y <- 632
+sum_x2 <- 11529419
+sum_xy <- 598098
+sum_y2 <- 31128
+```
+
+## Q7. Calculate the least squares estimate of the slope (B-1)
+
+```{r calculate-least-squares-b1}
+beta_1_hat <- (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x^2)
+
+# Print the result
+cat("The least squares estimate of the slope (B-1) is:", beta_1_hat, "\n")
+```
+
+## Q8. Calculate the least squares estimate of the intercept (B-1)
+
+```{r calculate-least-squares-b0}
+beta_0_hat <- (sum_y / n) - beta_1_hat * (sum_x / n)
+
+# Print the result
+cat("The least squares estimate of the intercept (B-0) is:", beta_0_hat, "\n")
+```
+
+## Q9. Estimate sigma-squared
+
+```{r estimate-sigma-squared}
+
+# Calculate S_yy
+S_yy <- sum_y2 - (sum_y^2 / n)
+
+# Calculate SSE (Sum of Squared Errors)
+SSE <- S_yy - beta_1_hat * sum_xy
+
+# Estimate sigma^2 (variance)
+sigma2_hat <- SSE / (n - 2)
+
+# Print the result
+cat("The estimate of sigma-squared (variance) is:", sigma2_hat, "\n")
+```
+
+#Q10. y when x=910
+
+```{r x-910}
+# Given value for x and observed y
+x_new <- 910
+y_observed <- 45
+
+# Calculate the predicted value of y when x = 910
+y_predicted <- beta_0_hat + beta_1_hat * x_new
+
+# Calculate the residual
+residual <- y_observed - y_predicted
+
+# Print the results
+cat("The predicted value of y when x = 910 is:", y_predicted, "\n")
+cat("The residual when x = 910 and observed y = 45 is:", residual, "\n")
+```
